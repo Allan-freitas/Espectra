@@ -50,4 +50,6 @@ object ApiClient {
     val profileApi: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
 
     val albumApi: AlbumApi by lazy { retrofit.create(AlbumApi::class.java) }
+
+    val calendarApi: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
 }

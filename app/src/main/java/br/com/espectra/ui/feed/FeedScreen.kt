@@ -21,6 +21,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import br.com.espectra.ui.calendar.CalendarScreen
+import br.com.espectra.ui.calendar.CalendarViewModel
 import br.com.espectra.ui.friends.FriendsScreen
 import br.com.espectra.ui.friends.FriendsViewModel
 import br.com.espectra.ui.photos.AlbumsScreen
@@ -44,6 +46,7 @@ fun FeedScreen(
     viewModel: FeedViewModel,
     friendsViewModel: FriendsViewModel,
     albumsViewModel: AlbumsViewModel,
+    calendarViewModel: CalendarViewModel,
     userName: String?,
     onLogout: () -> Unit,
     onAuthorClick: (userId: String, userName: String) -> Unit = { _, _ -> },
@@ -83,7 +86,7 @@ fun FeedScreen(
             }
 
             AppTabBar(
-                labels = listOf("Feed", "Descobrir", "Amigos", "Fotos"),
+                labels = listOf("Feed", "Descobrir", "Amigos", "Fotos", "Agenda"),
                 selected = tab,
                 onSelect = { tab = it },
             )
@@ -179,9 +182,14 @@ fun FeedScreen(
                     onAuthorClick = onAuthorClick,
                     modifier = Modifier.fillMaxSize(),
                 )
-            } else {
+            } else if (tab == 3) {
                 AlbumsScreen(
                     viewModel = albumsViewModel,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                CalendarScreen(
+                    viewModel = calendarViewModel,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
 import br.com.espectra.data.ApiClient
 import br.com.espectra.data.SessionManager
+import br.com.espectra.ui.calendar.CalendarViewModel
+import br.com.espectra.ui.calendar.CalendarViewModelFactory
 import br.com.espectra.ui.feed.FeedScreen
 import br.com.espectra.ui.feed.FeedViewModel
 import br.com.espectra.ui.feed.FeedViewModelFactory
@@ -57,6 +59,7 @@ class MainActivity : ComponentActivity() {
     private var feedViewModel: FeedViewModel? = null
     private var friendsViewModel: FriendsViewModel? = null
     private var albumsViewModel: AlbumsViewModel? = null
+    private var calendarViewModel: CalendarViewModel? = null
 
     private fun getFeedViewModel(): FeedViewModel {
         val current = feedViewModel
@@ -79,6 +82,14 @@ class MainActivity : ComponentActivity() {
         if (current != null) return current
         val created = ViewModelProvider(this, AlbumsViewModelFactory())[AlbumsViewModel::class.java]
         albumsViewModel = created
+        return created
+    }
+
+    private fun getCalendarViewModel(): CalendarViewModel {
+        val current = calendarViewModel
+        if (current != null) return current
+        val created = ViewModelProvider(this, CalendarViewModelFactory())[CalendarViewModel::class.java]
+        calendarViewModel = created
         return created
     }
 
@@ -112,12 +123,14 @@ class MainActivity : ComponentActivity() {
                                 viewModel = getFeedViewModel(),
                                 friendsViewModel = getFriendsViewModel(),
                                 albumsViewModel = getAlbumsViewModel(),
+                                calendarViewModel = getCalendarViewModel(),
                                 userName = loggedUser,
                                 onLogout = {
                                     session.clear()
                                     feedViewModel = null
                                     friendsViewModel = null
                                     albumsViewModel = null
+                                    calendarViewModel = null
                                     loggedUser = null
                                     screen = AuthScreen.Login
                                 },

@@ -76,6 +76,9 @@ interface SocialApi {
     @DELETE("friendrequests/friends/{friendId}")
     suspend fun removeFriend(@Path("friendId") friendId: String): retrofit2.Response<Unit>
 
+    @GET("friendrequests/birthday-months")
+    suspend fun getBirthdayMonths(): List<BirthdayMonth>
+
     @GET("settings")
     suspend fun getSettings(): UserSettings
 }
