@@ -24,6 +24,15 @@ data class FriendRequestDto(
     val createdAt: String? = null,
 )
 
+/** Espelha user-search.ts: resultado da busca global de usuários. */
+data class UserSearchResult(
+    val userId: String,
+    val name: String? = null,
+    val lastName: String? = null,
+    val avatarUrl: String? = null,
+    val isFriend: Boolean = false,
+)
+
 /**
  * Espelha album.ts do web. Visibilidade tem ordem própria:
  * FriendsOnly=0, SpecificFriends=1, Public=2.

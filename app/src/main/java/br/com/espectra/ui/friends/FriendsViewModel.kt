@@ -7,10 +7,14 @@ import androidx.lifecycle.viewModelScope
 import br.com.espectra.data.ApiClient
 import br.com.espectra.data.Friend
 import br.com.espectra.data.FriendRequestDto
+import br.com.espectra.data.UserSearchResult
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import retrofit2.HttpException
 import java.io.IOException
+import java.text.Normalizer
 
 enum class FriendsTab { FRIENDS, INCOMING, SENT }
 
@@ -22,6 +26,11 @@ data class FriendsUiState(
     val search: String = "",
     val loading: Boolean = false,
     val message: String? = null,
+    /** Resultado da busca global (qualquer usuário cadastrado). */
+    val globalResults: List<UserSearchResult> = emptyList(),
+    val searchingGlobal: Boolean = false,
+    /** IDs com pedido já enviado nesta sessão. */
+    val requestedIds: Set<String> = emptySet(),
 )
 
 /** Espelha friends.component + friend-requests (listar, buscar, aceitar, recusar, cancelar, remover). */
@@ -42,22 +51,81 @@ class FriendsViewModel : ViewModel() {
 
     fun setTab(tab: FriendsTab) = update { it.copy(tab = tab) }
 
-    fun onSearch(v: String) = update { it.copy(search = v) }
+    fun onSearch(v: String) {
+        update { it.copy(search = v) }
+        scheduleGlobalSearch(v)
+    }
+
+    private var searchJob: Job? = null
+
+    /** Busca global com debounce (só a partir de 2 letras). */
+    private fun scheduleGlobalSearch(query: String) {
+        searchJob?.cancel()
+        val q = query.trim()
+        if (q.length < 2) {
+            update { it.copy(globalResults = emptyList(), searchingGlobal = false) }
+            return
+        }
+        searchJob = viewModelScope.launch {
+            delay(400)
+            update { it.copy(searchingGlobal = true) }
+            val results = runCatching { ApiClient.socialApi.searchUsers(q) }.getOrDefault(emptyList())
+            update { it.copy(globalResults = results, searchingGlobal = false) }
+        }
+    }
+
+    /** Minúsculo + sem acentos: "joao" acha "João". */
+    private fun norm(s: String): String {
+        val nfd = Normalizer.normalize(s.trim().lowercase(), Normalizer.Form.NFD)
+        return nfd.replace("\\p{Mn}+".toRegex(), "")
+    }
 
     fun refresh() {
         viewModelScope.launch {
             update { it.copy(loading = true) }
-            val friends = runCatching { ApiClient.socialApi.getFriends() }.getOrDefault(emptyList())
-            val incoming = runCatching { ApiClient.socialApi.getIncomingRequests() }.getOrDefault(emptyList())
-            val sent = runCatching { ApiClient.socialApi.getSentRequests() }.getOrDefault(emptyList())
-            update { it.copy(friends = friends, incoming = incoming, sent = sent, loading = false) }
+            val friends = runCatching { ApiClient.socialApi.getFriends() }
+            val incoming = runCatching { ApiClient.socialApi.getIncomingRequests() }
+            val sent = runCatching { ApiClient.socialApi.getSentRequests() }
+            val failed = friends.isFailure && incoming.isFailure && sent.isFailure
+            update {
+                it.copy(
+                    friends = friends.getOrDefault(emptyList()),
+                    incoming = incoming.getOrDefault(emptyList()),
+                    sent = sent.getOrDefault(emptyList()),
+                    loading = false,
+                    message = if (failed) "Falha ao carregar. Toque para tentar de novo." else it.message,
+                )
+            }
         }
     }
 
     fun filteredFriends(): List<Friend> {
-        val q = uiState.value.search.trim().lowercase()
+        val q = norm(uiState.value.search)
         if (q.isEmpty()) return uiState.value.friends
-        return uiState.value.friends.filter { (it.name ?: "").lowercase().contains(q) }
+        return uiState.value.friends.filter { norm(it.name ?: "").contains(q) }
+    }
+
+    /** Envia pedido para um usuário da busca global. */
+    fun sendRequest(userId: String) {
+        if (uiState.value.requestedIds.contains(userId)) return
+        viewModelScope.launch {
+            try {
+                val res = ApiClient.socialApi.sendFriendRequest(
+                    br.com.espectra.data.SendFriendRequest(userId),
+                )
+                if (!res.isSuccessful) throw HttpException(res)
+                update {
+                    it.copy(
+                        requestedIds = it.requestedIds + userId,
+                        message = "Pedido de amizade enviado!",
+                    )
+                }
+                val sent = runCatching { ApiClient.socialApi.getSentRequests() }.getOrDefault(uiState.value.sent)
+                update { it.copy(sent = sent) }
+            } catch (e: Exception) {
+                update { it.copy(message = apiMessage(e) ?: "Falha ao enviar pedido.") }
+            }
+        }
     }
 
     fun accept(request: FriendRequestDto) {

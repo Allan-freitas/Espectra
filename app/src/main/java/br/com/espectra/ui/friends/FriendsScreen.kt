@@ -105,47 +105,105 @@ fun FriendsScreen(
             ) {
                 when (state.tab) {
                     FriendsTab.FRIENDS -> {
-                        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-                            OutlinedTextField(
-                                value = state.search,
-                                onValueChange = viewModel::onSearch,
-                                placeholder = { Text("Buscar amigos...", fontSize = 13.sp) },
-                                singleLine = true,
-                                shape = RoundedCornerShape(999.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = FeedBrand,
-                                    focusedLabelColor = FeedBrandDark,
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
-                            )
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                        ) {
+                            item {
+                                OutlinedTextField(
+                                    value = state.search,
+                                    onValueChange = viewModel::onSearch,
+                                    placeholder = { Text("Buscar amigos ou pessoas...", fontSize = 13.sp) },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(999.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = FeedBrand,
+                                        focusedLabelColor = FeedBrandDark,
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                )
+                            }
                             val friends = viewModel.filteredFriends()
-                            if (friends.isEmpty()) {
-                                if (state.loading) {
-                                    CenterSpinner()
-                                } else {
-                                    EmptyHint("Nenhum amigo encontrado. 🤝")
-                                }
+                            if (friends.isEmpty() && !state.loading && state.search.trim().length < 2) {
+                                item { EmptyHint("Nenhum amigo encontrado. 🤝") }
                             } else {
-                                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    items(friends, key = { it.id }) { friend ->
+                                items(friends, key = { "f-${it.id}" }) { friend ->
+                                    FriendRow(
+                                        name = friend.name.orEmpty().ifBlank { "Usuário" },
+                                        avatar = friend.avatar,
+                                        subtitle = friend.mutualInfo
+                                            ?: friend.friendsSince?.let { "Amigos desde $it" },
+                                        onClick = {
+                                            onAuthorClick(friend.id, friend.name.orEmpty())
+                                        },
+                                        action = {
+                                            TextButton(onClick = { toRemove = friend }) {
+                                                Text(text = "Remover", fontSize = 12.sp, color = FeedError)
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                            if (state.search.trim().length >= 2) {
+                                item {
+                                    Text(
+                                        text = "Pessoas na Espectra",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = FeedInk,
+                                        modifier = Modifier.padding(top = 8.dp),
+                                    )
+                                }
+                                if (state.searchingGlobal && state.globalResults.isEmpty()) {
+                                    item {
+                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                                            CircularProgressIndicator(color = FeedBrand, modifier = Modifier.size(24.dp))
+                                        }
+                                    }
+                                } else if (state.globalResults.isEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "Nenhum usuário encontrado para \"${state.search.trim()}\".",
+                                            fontSize = 13.sp,
+                                            color = FeedMuted,
+                                            modifier = Modifier.padding(vertical = 4.dp),
+                                        )
+                                    }
+                                } else {
+                                    items(state.globalResults, key = { "g-${it.userId}" }) { person ->
+                                        val fullName = "${person.name.orEmpty()} ${person.lastName.orEmpty()}".trim().ifBlank { "Usuário" }
+                                        val requested = state.requestedIds.contains(person.userId)
                                         FriendRow(
-                                            name = friend.name.orEmpty().ifBlank { "Usuário" },
-                                            avatar = friend.avatar,
-                                            subtitle = friend.mutualInfo
-                                                ?: friend.friendsSince?.let { "Amigos desde $it" },
-                                            onClick = {
-                                                onAuthorClick(friend.id, friend.name.orEmpty())
+                                            name = fullName,
+                                            avatar = person.avatarUrl,
+                                            subtitle = when {
+                                                person.isFriend -> "Já é seu amigo ✓"
+                                                requested -> "Pedido enviado ✓"
+                                                else -> null
                                             },
+                                            onClick = { onAuthorClick(person.userId, fullName) },
                                             action = {
-                                                TextButton(onClick = { toRemove = friend }) {
-                                                    Text(text = "Remover", fontSize = 12.sp, color = FeedError)
+                                                if (!person.isFriend && !requested) {
+                                                    Button(
+                                                        onClick = { viewModel.sendRequest(person.userId) },
+                                                        shape = RoundedCornerShape(999.dp),
+                                                        colors = ButtonDefaults.buttonColors(
+                                                            containerColor = FeedBrand,
+                                                            contentColor = Color.White,
+                                                        ),
+                                                    ) {
+                                                        Text(text = "+ Adicionar", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                    }
                                                 }
                                             },
                                         )
                                     }
                                 }
+                            }
+                            if (state.loading && friends.isEmpty()) {
+                                item { CenterSpinner() }
                             }
                         }
                     }

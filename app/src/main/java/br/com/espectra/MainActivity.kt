@@ -93,6 +93,20 @@ class MainActivity : ComponentActivity() {
         return created
     }
 
+    /** Sinal (observado no setContent) de que o token morreu (401). */
+    private val expireSignal = mutableStateOf(0)
+
+    private fun handleSessionExpired() {
+        // Ignora 401s de chamadas já em voo após o logout.
+        if (!session.hasSession()) return
+        session.clear()
+        feedViewModel = null
+        friendsViewModel = null
+        albumsViewModel = null
+        calendarViewModel = null
+        expireSignal.value++
+    }
+
     private fun getProfileViewModel(userId: String?, fallbackName: String?): ProfileViewModel {
         return ViewModelProvider(this, ProfileViewModelFactory(userId, fallbackName, session))
             .get("profile_${userId ?: "me"}", ProfileViewModel::class.java)
@@ -101,6 +115,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ApiClient.tokenProvider = { session.getToken() }
+        ApiClient.onUnauthorized = { handleSessionExpired() }
         enableEdgeToEdge()
         setContent {
             // Identidade do app é clara (creme/branco) — não segue o modo escuro do sistema.
@@ -109,6 +124,16 @@ class MainActivity : ComponentActivity() {
                     var loggedUser by remember { mutableStateOf(session.getUserName()) }
                     var screen by remember { mutableStateOf(AuthScreen.Login) }
                     var profile by remember { mutableStateOf<Pair<String, String?>?>(null) }
+                    val expired = expireSignal.value
+
+                    androidx.compose.runtime.LaunchedEffect(expired) {
+                        if (expired > 0 && loggedUser != null) {
+                            profile = null
+                            loggedUser = null
+                            screen = AuthScreen.Login
+                            loginViewModel.notifySessionExpired()
+                        }
+                    }
 
                     if (loggedUser != null) {
                         val target = profile

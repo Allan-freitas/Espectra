@@ -88,7 +88,24 @@ fun FeedScreen(
             AppTabBar(
                 labels = listOf("Feed", "Descobrir", "Amigos", "Fotos", "Agenda"),
                 selected = tab,
-                onSelect = { tab = it },
+                onSelect = {
+                    if (it == tab) {
+                        // Tocar na aba ativa recarrega (padrão mobile).
+                        when (it) {
+                            0, 1 -> viewModel.refresh()
+                            2 -> friendsViewModel.refresh()
+                            3 -> {
+                                if (albumsViewModel.uiState.value.selected != null) {
+                                    albumsViewModel.closeAlbum()
+                                }
+                                albumsViewModel.loadAlbums()
+                            }
+                            4 -> calendarViewModel.load()
+                        }
+                    } else {
+                        tab = it
+                    }
+                },
             )
 
             if (tab == 0) {

@@ -79,9 +79,16 @@ class CalendarViewModel : ViewModel() {
     fun load() {
         viewModelScope.launch {
             update { it.copy(loading = true) }
-            val events = runCatching { ApiClient.calendarApi.getAll() }.getOrDefault(emptyList())
+            val events = runCatching { ApiClient.calendarApi.getAll() }
             val birthdays = runCatching { ApiClient.socialApi.getBirthdayMonths() }.getOrDefault(emptyList())
-            update { it.copy(events = events, birthdayMonths = birthdays, loading = false) }
+            update {
+                it.copy(
+                    events = events.getOrDefault(emptyList()),
+                    birthdayMonths = birthdays,
+                    loading = false,
+                    message = events.exceptionOrNull()?.let { "Falha ao carregar eventos." },
+                )
+            }
         }
     }
 

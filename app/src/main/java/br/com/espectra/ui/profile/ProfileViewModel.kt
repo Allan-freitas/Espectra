@@ -45,7 +45,7 @@ class ProfileViewModel(
     var uiState = mutableStateOf(
         ProfileUiState(
             name = fallbackName ?: "",
-            isMine = userId == null || userId == session.getUserId(),
+            isMine = (userId == null) || (userId == session.getUserId()),
             avatarPath = session.getUserAvatar(),
             coverPath = session.getUserCover(),
         ),
@@ -82,7 +82,7 @@ class ProfileViewModel(
                         message = "Foto de perfil atualizada!",
                     )
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 update { it.copy(uploadingAvatar = false, message = "Erro ao fazer upload da foto de perfil. Tente novamente.") }
             }
         }
@@ -106,7 +106,7 @@ class ProfileViewModel(
                         message = "Foto de capa atualizada!",
                     )
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 update { it.copy(uploadingCover = false, message = "Erro ao fazer upload da foto de capa. Tente novamente.") }
             }
         }
@@ -115,8 +115,9 @@ class ProfileViewModel(
     fun load() {
         viewModelScope.launch {
             update { it.copy(loading = true) }
-            val mine = userId == null || userId == session.getUserId()
-            val queryId = if (mine) null else userId
+            val currentUserId = userId
+            val mine = currentUserId == null || currentUserId == session.getUserId()
+            val queryId = if (mine) null else currentUserId
             try {
                 val info = async { ApiClient.profileApi.getPersonalInfo(queryId) }
                 val hobbies = async { runCatching { ApiClient.profileApi.getHobbies(queryId) }.getOrNull() }
@@ -125,7 +126,7 @@ class ProfileViewModel(
                 val count = async {
                     runCatching {
                         if (mine) ApiClient.profileApi.getPostCount()
-                        else ApiClient.profileApi.getPostCountByUser(userId!!)
+                        else ApiClient.profileApi.getPostCountByUser(currentUserId)
                     }.getOrDefault(0)
                 }
                 val personalInfo = info.await()
@@ -145,12 +146,12 @@ class ProfileViewModel(
                         employment = employmentList,
                         postCount = postCountValue,
                         avatarPath = if (mine) session.getUserAvatar() else it.avatarPath
-                            ?: "${ApiClient.API_ORIGIN}/api/profile/avatar?userId=$userId",
+                            ?: "${ApiClient.API_ORIGIN}/api/profile/avatar?userId=$currentUserId",
                         coverPath = if (mine) session.getUserCover() else it.coverPath
-                            ?: "${ApiClient.API_ORIGIN}/api/profile/cover?userId=$userId",
+                            ?: "${ApiClient.API_ORIGIN}/api/profile/cover?userId=$currentUserId",
                     )
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 update { it.copy(loading = false, message = "Falha ao carregar o perfil.") }
             }
         }

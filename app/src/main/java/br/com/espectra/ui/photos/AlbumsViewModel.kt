@@ -84,8 +84,14 @@ class AlbumsViewModel : ViewModel() {
     fun loadAlbums() {
         viewModelScope.launch {
             update { it.copy(loading = true) }
-            val albums = runCatching { ApiClient.albumApi.getMine() }.getOrDefault(emptyList())
-            update { it.copy(albums = albums, loading = false) }
+            val result = runCatching { ApiClient.albumApi.getMine() }
+            update {
+                it.copy(
+                    albums = result.getOrDefault(emptyList()),
+                    loading = false,
+                    message = result.exceptionOrNull()?.let { "Falha ao carregar álbuns." },
+                )
+            }
         }
     }
 

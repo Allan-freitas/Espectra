@@ -55,6 +55,9 @@ interface SocialApi {
     @GET("friendrequests/friends")
     suspend fun getFriends(): List<Friend>
 
+    @GET("friendrequests/search")
+    suspend fun searchUsers(@Query("query") query: String): List<UserSearchResult>
+
     @POST("friendrequests")
     suspend fun sendFriendRequest(@Body dto: SendFriendRequest): retrofit2.Response<Unit>
 

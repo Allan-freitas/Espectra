@@ -50,6 +50,11 @@ class LoginViewModel(
         update { it.copy(loginError = null) }
     }
 
+    /** Chamado quando a API devolve 401 com o app em uso (JWT de 60 min expirado). */
+    fun notifySessionExpired() {
+        update { it.copy(loginError = "Sua sessão expirou. Entre novamente.") }
+    }
+
     fun login() {
         val email = uiState.value.email.trim()
         val password = uiState.value.password

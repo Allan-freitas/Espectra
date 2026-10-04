@@ -13,16 +13,43 @@ object ApiClient {
     @Volatile
     var tokenProvider: () -> String? = { null }
 
+    /**
+     * Chamado uma vez por resposta 401 de rota autenticada (token expirado —
+     * o JWT dura 60 min e a API não tem refresh). Rotas públicas de auth
+     * (login/cadastro) nunca disparam.
+     */
+    @Volatile
+    var onUnauthorized: () -> Unit = {}
+
+    private val publicAuthPaths = setOf(
+        "auth/login", "auth/register", "auth/forgot-password",
+        "auth/reset-password", "auth/confirm-email",
+    )
+
     private val authInterceptor = Interceptor { chain ->
         val token = tokenProvider()
+        val original = chain.request()
         val request = if (!token.isNullOrBlank()) {
-            chain.request().newBuilder()
+            original.newBuilder()
                 .header("Authorization", "Bearer $token")
                 .build()
         } else {
-            chain.request()
+            original
         }
-        chain.proceed(request)
+        val response = chain.proceed(request)
+        // OkHttp 3.x (transitivo do Retrofit): url() e code() são métodos.
+        val path = original.url().encodedPath().removePrefix("/api/").trimStart('/')
+        if (response.code() == 401 && publicAuthPaths.none { path.equals(it, ignoreCase = true) }) {
+            // Roda em thread de IO: avisa na thread principal.
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    onUnauthorized()
+                } catch (e: Exception) {
+                    // nunca quebrar a chamada por causa do listener
+                }
+            }
+        }
+        response
     }
 
     private val httpClient: OkHttpClient by lazy {
