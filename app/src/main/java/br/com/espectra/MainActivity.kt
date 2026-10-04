@@ -4,37 +4,33 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
+import br.com.espectra.data.ApiClient
 import br.com.espectra.data.SessionManager
+import br.com.espectra.ui.feed.FeedScreen
+import br.com.espectra.ui.feed.FeedViewModel
+import br.com.espectra.ui.feed.FeedViewModelFactory
+import br.com.espectra.ui.friends.FriendsViewModel
+import br.com.espectra.ui.friends.FriendsViewModelFactory
+import br.com.espectra.ui.photos.AlbumsViewModel
+import br.com.espectra.ui.photos.AlbumsViewModelFactory
 import br.com.espectra.ui.forgot.ForgotPasswordScreen
 import br.com.espectra.ui.forgot.ForgotPasswordViewModel
 import br.com.espectra.ui.forgot.ForgotPasswordViewModelFactory
 import br.com.espectra.ui.login.LoginScreen
 import br.com.espectra.ui.login.LoginViewModel
 import br.com.espectra.ui.login.LoginViewModelFactory
+import br.com.espectra.ui.profile.ProfileScreen
+import br.com.espectra.ui.profile.ProfileViewModel
+import br.com.espectra.ui.profile.ProfileViewModelFactory
 import br.com.espectra.ui.register.RegisterScreen
 import br.com.espectra.ui.register.RegisterViewModel
 import br.com.espectra.ui.register.RegisterViewModelFactory
@@ -58,25 +54,77 @@ class MainActivity : ComponentActivity() {
         ViewModelProvider(this, ForgotPasswordViewModelFactory())[ForgotPasswordViewModel::class.java]
     }
 
+    private var feedViewModel: FeedViewModel? = null
+    private var friendsViewModel: FriendsViewModel? = null
+    private var albumsViewModel: AlbumsViewModel? = null
+
+    private fun getFeedViewModel(): FeedViewModel {
+        val current = feedViewModel
+        if (current != null) return current
+        val created = ViewModelProvider(this, FeedViewModelFactory(session))[FeedViewModel::class.java]
+        feedViewModel = created
+        return created
+    }
+
+    private fun getFriendsViewModel(): FriendsViewModel {
+        val current = friendsViewModel
+        if (current != null) return current
+        val created = ViewModelProvider(this, FriendsViewModelFactory())[FriendsViewModel::class.java]
+        friendsViewModel = created
+        return created
+    }
+
+    private fun getAlbumsViewModel(): AlbumsViewModel {
+        val current = albumsViewModel
+        if (current != null) return current
+        val created = ViewModelProvider(this, AlbumsViewModelFactory())[AlbumsViewModel::class.java]
+        albumsViewModel = created
+        return created
+    }
+
+    private fun getProfileViewModel(userId: String?, fallbackName: String?): ProfileViewModel {
+        return ViewModelProvider(this, ProfileViewModelFactory(userId, fallbackName, session))
+            .get("profile_${userId ?: "me"}", ProfileViewModel::class.java)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ApiClient.tokenProvider = { session.getToken() }
         enableEdgeToEdge()
         setContent {
-            EspectraTheme {
+            // Identidade do app é clara (creme/branco) — não segue o modo escuro do sistema.
+            EspectraTheme(darkTheme = false, dynamicColor = false) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     var loggedUser by remember { mutableStateOf(session.getUserName()) }
                     var screen by remember { mutableStateOf(AuthScreen.Login) }
+                    var profile by remember { mutableStateOf<Pair<String, String?>?>(null) }
 
                     if (loggedUser != null) {
-                        LoggedInPlaceholder(
-                            name = loggedUser!!,
-                            onLogout = {
-                                session.clear()
-                                loggedUser = null
-                                screen = AuthScreen.Login
-                            },
-                            modifier = Modifier.padding(innerPadding),
-                        )
+                        val target = profile
+                        if (target != null) {
+                            ProfileScreen(
+                                viewModel = getProfileViewModel(target.first, target.second),
+                                onBack = { profile = null },
+                                modifier = Modifier.padding(innerPadding),
+                            )
+                        } else {
+                            FeedScreen(
+                                viewModel = getFeedViewModel(),
+                                friendsViewModel = getFriendsViewModel(),
+                                albumsViewModel = getAlbumsViewModel(),
+                                userName = loggedUser,
+                                onLogout = {
+                                    session.clear()
+                                    feedViewModel = null
+                                    friendsViewModel = null
+                                    albumsViewModel = null
+                                    loggedUser = null
+                                    screen = AuthScreen.Login
+                                },
+                                onAuthorClick = { userId, userName -> profile = userId to userName },
+                                modifier = Modifier.padding(innerPadding),
+                            )
+                        }
                     } else {
                         when (screen) {
                             AuthScreen.Login -> LoginScreen(
@@ -101,49 +149,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-        }
-    }
-}
-
-// Placeholder até as próximas telas (feed, chat...) chegarem
-@Composable
-private fun LoggedInPlaceholder(
-    name: String,
-    onLogout: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(text = "♾️", fontSize = 48.sp)
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "Olá, $name!",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color(0xFF1E293B),
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "Você está logado na Espectra.",
-            fontSize = 15.sp,
-            color = Color(0xFF64748B),
-            textAlign = TextAlign.Center,
-        )
-        Spacer(modifier = Modifier.height(20.dp))
-        Button(
-            onClick = onLogout,
-            shape = RoundedCornerShape(999.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF97316),
-                contentColor = Color.White,
-            ),
-        ) {
-            Text(text = "Sair", fontWeight = FontWeight.Bold)
         }
     }
 }

@@ -30,7 +30,13 @@ class SessionManager(context: Context) {
 
     fun hasSession(): Boolean = prefs.getString(KEY_TOKEN, null) != null
 
+    fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
+
+    fun getUserId(): String? = prefs.getString(KEY_USER_ID, null)
+
     fun getUserName(): String? = prefs.getString(KEY_USER_NAME, null)
+
+    fun getUserAvatar(): String? = prefs.getString(KEY_USER_AVATAR, null)
 
     fun getUserCover(): String? = prefs.getString(KEY_USER_COVER, null)
 
