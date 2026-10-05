@@ -46,6 +46,15 @@ class LoginViewModel(
         update { it.copy(password = value, passwordError = null, loginError = null) }
     }
 
+    /** Credenciais do último login bem-sucedido (p/ cofre do PIN; uso único). */
+    private var lastCredentials: Pair<String, String>? = null
+
+    fun takeCredentials(): Pair<String, String>? {
+        val creds = lastCredentials
+        lastCredentials = null
+        return creds
+    }
+
     fun dismissError() {
         update { it.copy(loginError = null) }
     }
@@ -81,6 +90,7 @@ class LoginViewModel(
                 }
                 val response = ApiClient.authApi.login(LoginRequest(email, password, deviceInfo))
                 session.saveSession(response)
+                lastCredentials = email to password
                 update { it.copy(loading = false, loggedInName = "${response.name} ${response.lastName}".trim()) }
             } catch (e: HttpException) {
                 update { it.copy(loading = false, loginError = apiMessage(e) ?: "Email ou senha inválidos.") }

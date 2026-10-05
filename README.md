@@ -9,17 +9,20 @@ laranja da marca `#F97316` (fundo creme `#FFFFFBEB`).
 ## Stack
 
 - **Kotlin** + **Jetpack Compose** (Material3) — UI 100% declarativa
+- **Navigation Compose** (single-activity: `login → register/forgot`,
+  `home`, `profile/{userId}`, `pin-setup`, `unlock`)
 - **Retrofit + Gson** + **OkHttp** (transitivo, sem dependências extras) —
   `Authorization: Bearer` em todas as chamadas (equivale ao
   `jwt.interceptor.ts` do web)
-- `minSdk 33` · `targetSdk 37` · build com Gradle (`assembleDebug --offline`
-  funciona: nenhuma dependência fora do cache)
+- **security-crypto** (Keystore) — cofre do PIN de acesso rápido
+- `minSdk 33` · `targetSdk 37`
 
 ## Funcionalidades (paridade com o web)
 
 | Área | Tela | Inclui |
 | ---- | ---- | ------ |
 | Auth | Login, Cadastro, Esqueci a senha | Mesmas validações/mensagens do web; `DeviceInfo` + IP público (auditoria `LoginHistory`) |
+| Auth | PIN de acesso rápido | Criar/confirmar após o login; desbloqueio com login silencioso; hash + cofre Keystore; bloqueio após 5 erros |
 | Feed | Feed | Composer Status/Mídia/Blog, sentimentos, visibilidade 🌍/👥/🔒 (+ amigos específicos), like otimista, comentários, excluir, compartilhar (sheet nativo), paginação infinita, pull-to-refresh |
 | Feed | Descobrir | Clima (São Paulo), aniversário próximo, sugestões de amizade, atividades |
 | Social | Amigos | Amigos com busca, pedidos recebidos (aceitar/recusar), enviados (cancelar), remover amigo |
@@ -36,12 +39,13 @@ autor (posts e comentários) abre o perfil, com `← Voltar`.
 app/src/main/
 ├── AndroidManifest.xml            # INTERNET + CAMERA + FileProvider
 ├── java/br/com/espectra/
-│   ├── MainActivity.kt            # auth + abas + navegação perfil
-│   ├── data/                      # Retrofit (Auth/Feed/Social/Profile/Album),
-│   │                              # DTOs, SessionManager, ImageLoader (sem Coil),
+│   ├── MainActivity.kt            # NavHost + ViewModels (single-activity)
+│   ├── data/                      # Retrofit (Auth/Feed/Social/Profile/Album/Calendar),
+│   │                              # DTOs, SessionManager, PinManager, CredentialVault,
+│   │                              # ImageLoader (sem Coil),
 │   │                              # ImageCompressor, WeatherRepository, DeviceInfoProvider
 │   └── ui/
-│       ├── login/ register/ forgot/
+│       ├── login/ register/ forgot/ pin/
 │       ├── feed/                  # FeedScreen, Composer, PostCard, Discover, AppTabBar
 │       ├── friends/               # FriendsScreen
 │       ├── photos/                # AlbumsScreen (álbuns)
